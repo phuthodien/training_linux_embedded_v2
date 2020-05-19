@@ -1,0 +1,330 @@
+Device Driver Linux
+	Chào m?i ngu?i, hôm này mình xin gi?i thi?u v?i m?i ngu?i cách mà mình ti?p 
+c?n, vi?t m?t driver cho m?t ngo?i vi trên linux. Toàn b? lý thuy?t trong bài 
+vi?t này là kinh nghi?m mình rút ra sau khi vi?t m?t s? driver cho linux kernel,
+mong r?ng bài vi?t s? du?c c?ng d?ng nh?n xét, góp ý d? hoàn thi?n hon và giúp
+cho ngu?i m?i d? dàng h?c t?p hon trong linh v?c Embedded Linux.
+
+Ð?u tiên, mình mu?n d? c?p t?i vi?c "Linux qu?n lý m?t Peripheral nhu th? nào?".
+				    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	Trên m?t board m?ch nhúng, ta thu?ng th?y s? có 1 con SoC làm b? não c?a 
+board m?ch, sau dó ngu?i ta d?t lên m?ch dó m?t s? các Devices nhu Led, LCD,
+Sensor,... Các Devices này s? du?c di?u khi?n b?i con SoC.
+
+	Trên con SoC s? có các module peripherals nhu GPIO, SPI, I2C, UART,...
+Các peripherals này s? làm nhi?m v? truy?n nh?n data gi?a SoC v?i các Devices
+bên ngoài (Led, LCD, Sensor, ...). Ð? làm vi?c v?i ph?n hardware này, Linux
+c?n có các driver d? qu?n lý vi?c thao tác v?i hardware tuong ?ng.
+
+Và Linux Driver chia thành 2 lo?i driver d? làm vi?c v?i các hardware dó, g?m:
+Controller Driver (hay Bus Driver) và Protocol Driver (hay Device Driver).
+
++ Controller Driver s? qu?n lý vi?c thao tác v?i các module trên con SoC (GPIO,
+SPI, I2C,...) nhi?m v? c?a nó là c?u hình các thanh ghi trong module tuong ?ng.
+
++ Protocol Driver s? là noi ch?a các hàm d? làm vi?c giao ti?p v?i m?t Device
+c? th? (Led, LCD,..). Ph?n Driver này s? không tr?c ti?p thao tác d?c ghi vào
+các thanh ghi c?a module peripheral mà nó s? g?i các hàm dã du?c vi?t ? ph?n
+Controller Driver d? c?u hình các thanh ghi sao cho d? li?u du?c truy?n t? SoC
+qua Devices.
+
+/* Ví d?: */
+	Ta có ph?n driver d? di?u khi?n module SPI g?i là SPI controller. Driver này
+s? implement các hàm d? thao tác v?i thanh ghi data trong module SPI d? truy?n
+nh?n d? li?u thông qua chân MISO và MOSI c?a SPI module trên con SoC.
+	Ta c?n s? d?ng module SPI d? giao ti?p v?i m?t màn hình LCD.
+Khi dó ta s? c?n vi?t m?t Driver riêng cho LCD, trong driver này s?
+có các hàm d? g?i các chu?i data phù h?p v?i t?p l?nh c?a LCD nh?m hi?n th?
+data lên LCD. Driver này g?i là Protocol Driver.
+
+	Nhu v?y, ta có th? th?y, Protocol Driver s? g?i xu?ng các hàm c?a Controller
+Driver d? s? d?ng các Peripherals trên con SoC nh?m giao ti?p di?u khi?n Device.
+Tuy nhiên, Linux mu?n chúng ta d?ng t? Protocol Driver và g?i th?ng xu?ng các
+hàm c?a Controller Driver. Linux cung c?p cho chúng ta m?t l?p interface gi?a
+Controller Driver và Protocol Driver g?i là DRIVER CORE.
+
+Th?c ch?t, DRIVER CORE này là m?t b? các APIs du?c kernel vi?t s?n, các APIs này
+s? yêu c?u nh?n m?t s? các tham s? c? th? liên quan t?i module peripheral và nó
+s? g?i t?i các hàm c?a Controller Driver.
+
+Sau dó, ? ph?n Protocol Driver thì công vi?c d? s? d?ng các module peripheral
+th?c ra là g?i t?i các APIs này và truy?n dúng tham s? mà API yêu c?u. Ð? s?
+d?ng các APIs thì trong Protocol Driver c?n include header file tuong ?ng.
+Ví d? v?i SPI là: #include <linux/spi.h>
+
+V?y, chúng ta s? có th? tu?ng tu?ng mô hình t? t?ng user xu?ng t?i hardware nhu
+hình du?i dây.
+
+ ----------------------------------------------------------------
+|                           Device File                          |  USER SPACE
+ ---------------------------------------------------------------- 
+|                         Protocol Driver                        |
+|                                                                |
+|                           DRIVER CORE                          |  KERNEL SPACE
+|                                                                |
+|                         Controller Driver                      |
+ ---------------------------------------------------------------- 
+|                            Registers                           |  HARDWARE
+ ----------------------------------------------------------------
+
+	Gi? ta dã hi?u r?ng liên quan t?i m?t module Peripheral s? c?n 2 lo?i driver
+là: Controller Driver và Protocol Driver. Ti?p theo, chúng ta s? di sâu vào t?ng
+lo?i driver này, tìm hi?u cách implement cho t?ng driver.
+
+Nhung tru?c tiên ta c?n th?ng nh?t v? m?t idea khi tìm hi?u cách vi?t m?t driver
+nhu sau:
+- Khi tìm hi?u v? b?t kì lo?i driver nào (Controller hay Protocol), ta c?n
+n?m du?c 2 cái struct.
+	+ struct th? nh?t, là struct driver_type dùng d? dang kí driver v?i kernel.
+	+ struct th? hai, là struct device_type/module_type dùng d? dang kí instance
+	c?a module/device mà driver dó s? qu?n lý v?i kernel.
+- Sau khi dã bi?t du?c 2 struct ta c?n làm vi?c, ti?p d?n ta c?n n?m du?c cách
+register/unregister struct ?y v?i kernel hay các hàm d? làm vi?c v?i các struct
+dó.
+
+Sau khi có du?c 2 di?u trên, các b?n hình dung form c?a driver s? nhu này:
+================================================================================
+/* include header files */
+
+/* functions gán vào functions pointers trong struct qu?n lý module/device */
+/* các hàm open, read, write, ioctl dùng cho struct file_operations */
+
+static int my_probe(struct device_type)
+{
+	/* init struct module_type, gán các giá tr? cho function pointers */
+	/* register struct module_type */
+}
+static int my_remove(struct device_type)
+{
+	/* unregister struct module_type */
+}
+
+struct of_device_id dungnt98_of_match[] = {
+	{
+		.compatible = "dungnt98,compatibel"
+	},
+	{}
+};
+MODULE_DEVICE_TABLE(of, dungnt98_of_match);
+
+static struct driver_type my_driver_type = {
+	.probe = my_probe,
+	.remove = my_remove,
+	.driver = {
+		.name = "my_spi",
+		.owner = THIS_MODULE,
+		.of_match_table = dungnt98_of_match,	/* Matching device tree node */
+	},
+};
+
+static int __init func_init(void)
+{
+	/* register struct driver_type */
+}
+static void __exit func_exit(void)
+{
+	/* unregister struct driver_type */
+}
+
+moudle_init(func_init);
+module_exit(func_exit);
+
+MODULE_AUTHOR("Trong Dung");
+MODULE_LICENSE("GPL");
+...
+================================================================================
+- Ðó là form chung cho m?t driver, khi di vào chi ti?t t?ng lo?i driver ph?c v?
+cho t?ng module hardware, có th? có s? sai khác di m?t chút, ví d? có lo?i nhu
+Controller Driver s? không có ph?n t?o ra device file trong devfs và s? không
+implement các hàm open, read, write, ioctl cho struct file_operations.
+- Ð? kh?c ph?c di?u này, thì chúng ta d?a vào 2 tài li?u chính dó là:
+Document trong source code kernel và Example code cho chính lo?i module dó.
+================================================================================
+
+Xong, gi? chúng ta s? cùng di tìm Cách Vi?t Driver :D
+-----------------------------------------------------
+1. Controller Driver
+~~~~~~~~~~~~~~~~~~~~
+* Controller Driver s? là ph?n g?n hardware nh?t, làm nhi?m v? qu?n lý module
+peripheral và là noi tr?c ti?p d?c ghi vào các thanh ghi c?a module ngo?i vi.
+* M?c tiêu cu?i cùng c?a vi?c vi?t Controller Driver thu?ng là dang kí m?t
+struct module_type d? qu?n lý module peripheral v?i kernel, trong struct này s?
+có các tru?ng là các function pointers, các function pointers này s? du?c g?i ra
+b?i các APIs trong ph?n DRIVER CORE.
+* V?y d? tr? l?i câu h?i "Làm sao d? implement m?t Controller Driver?" ta s?
+th?c hi?n gi?i các bài toán sau:
+	1. struct module_type c?n làm vi?c tên là gì?
+	2. struct driver_type d? dang kí driver v?i kernel tên là gì?
+	3. Các hàm nào d? register và unregister các struct ?y?
+	4. Thay vào form trên.
+
+ví d?: Implement GPIO controller driver d? s? d?ng module GPIO.
+	1. struct module_type = struct gpio_chip.
+	2. struct driver_type = struct platform_driver
+	3. Các hàm register/unregister: 
+	- hàm register struct platform_driver:
+			module_platform_driver();
+	- Các hàm register/unregister struct gpio_chip:
+			gpiochip_add_data();
+			gpiochip_irqchip_add(); // hàm cho vi?c s? d?ng ng?t gpio
+			gpiochip_set_chained_irqchip(); // hàm cho vi?c s? d?ng ng?t gpio
+			gpiochip_remove();
+	4. Code
+
+ví d?: Implement SPI Controller driver d? s? d?ng module SPI v?i ch? d? Master.
+	1. struct module_type = struct spi_master.
+	2. struct driver_type = struct platform_driver
+	3. Các hàm register/unregister: 
+	- hàm register struct platform_driver:
+			platform_driver_register();
+			platform_driver_unregister();
+
+			hay có th? thay b?ng: module_platform_driver();
+
+	- Các hàm register/unregister struct spi_master:
+			spi_register_master();
+			spi_master_put();
+	4. Ði?n form :D 
+================================================================================
+/* include header files */
+
+/* functions gán vào functions pointers trong struct qu?n lý module/device */
+
+static int my_probe(struct platform_device *pdev)
+{
+	/* init struct spi_master, gán các giá tr? cho function pointers */
+	/* register struct spi_master */
+}
+static int my_remove(struct platform_device *pdev)
+{
+	/* unregister struct spi_master */
+}
+
+struct of_device_id name_of_match[] = {
+	{
+		.compatibel = "dungnt98,compatible",
+		.data = NULL,
+	},
+	{}
+};
+MODULE_DEVICE_TABLE(of, name_of_match);
+
+static struct platform_driver my_spi_driver = {
+	.probe = my_probe,
+	.remove = my_remove,
+	.driver = {
+		.name = "my_spi",
+		.owner = THIS_MODULE,
+		.of_match_table = name_of_match,	/* Matching device tree node */
+	},
+};
+
+static int __init func_init(void)
+{
+	/* register struct driver_type */
+	platform_driver_register(&my_spi_driver);
+}
+static void __exit func_exit(void)
+{
+	/* unregister struct driver_type */
+	platform_driver_unregister(&my_spi_driver);
+}
+
+moudle_init(func_init);
+module_exit(func_exit);
+
+MODULE_AUTHOR("Trong Dung");
+MODULE_LICENSE("GPL");
+...
+================================================================================
+
+NOTE:
+	Có m?t di?m khá hay, dó là khi vi?t ph?n Controller Driver, thì thu?ng
+struct driver_type s? là struct platform_driver. Nên vi?c còn l?i ch? là tìm ra
+struct qu?n lý  module c?a mình tên là gì mà thôi :D
+
+2. Protocol Driver
+~~~~~~~~~~~~~~~~~~
+* Protocol Driver là ph?n s? g?i các APIs du?c cung c?p b?i DRIVER CORE.
+* Ph?n này s? thu?ng vi?t theo d?ng character driver và t?o ra device file trong
+devfs d? tuong tác v?i user space.
+* Ð? implement ph?n này ta cung làm tuong t? nhu các bu?c ? trên.
+? dây mình s? l?y ví d? v? SPI Protocol Driver nhu sau:
+
+	1. struct device_type = struct spi_device.
+	2. struct driver_type = struct spi_driver.
+	3. Các hàm register/unregister: 
+	- hàm register struct spi_driver:
+		spi_register_driver();
+		spi_unregister_driver();
+	- Các hàm làm vi?c struct spi_device:
+		#include <linux/spi.h> :)) - nó n?m trong CORE h?t.
+
+	4. Ði?n form :D 
+================================================================================
+/* include header files */
+
+/* functions gán vào functions pointers trong struct qu?n lý module/device */
+
+static int my_probe(struct spi_device *spi)
+{
+/* setup struct spi_device *spi, gán các giá tr? cho các tru?ng trong struct */
+/* Create device file */
+}
+static int my_remove(struct spi_device *spi)
+{
+	/* free memory */
+}
+
+struct of_device_id LCD_of_match[] = {
+	{
+		.compatibel = "dungnt98,compatible",
+		.data = NULL,
+	},
+	{}
+};
+MODULE_DEVICE_TABLE(of, LCD_of_match);
+
+static struct spi_driver my_spi_driver = {
+	.probe = my_probe,
+	.remove = my_remove,
+	.driver = {
+		.name = "my_lcd",
+		.owner = THIS_MODULE,
+		.of_match_table = name_of_match,	/* Matching device tree node */
+	},
+};
+
+static int __init func_init(void)
+{
+	/* register struct driver_type */
+	spi_register_driver(&my_spi_driver);
+}
+static void __exit func_exit(void)
+{
+	/* unregister struct driver_type */
+	spi_unregister_driver(&my_spi_driver);
+}
+
+moudle_init(func_init);
+module_exit(func_exit);
+
+MODULE_AUTHOR("Trong Dung");
+MODULE_LICENSE("GPL");
+...
+================================================================================
+
+II. User Space Driver
+- Linux còn cung c?p 1 cách vi?t driver khác, g?i là user space driver.
+Driver có ch?c nang tuong duong v?i Protocol Driver nhung du?c vi?t ? t?ng user
+b?ng cách d?c ghi vào các file trong sysfs ho?c devfs tùy vào t?ng lo?i module.
+Ví d?:
+- V?i GPIO, user có th? thông qua sysfs d? di?u khi?n chân gpio_pin mà không
+c?n vi?t driver trong kernel.
+- Hay nhu v?i SPI, user có th? thông qua vi?c s? d?ng spidev - thao tác qua file
+/dev/spidevX.Y d? giao ti?p v?i device mà không c?n vi?t Protocol Driver.
+
+- V? ph?n này, Document trong source code kernel có ghi rõ.
+
+Trên dây mình dã trình bày cái view c?a mình khi tìm hi?u v? m?t driver. Hi v?ng
+nó s? giúp ích du?c cho c?ng d?ng và nh?n du?c nh?ng l?i nh?n xét t? c?ng d?ng.

@@ -1,0 +1,34 @@
+omap2_mcspi_setup(): setting module spi 
+	setup mode, clock, etc.
+omap2_mcspi_can_dma
+	determine whether this controller support DMA or not.
+omap2_mcspi_cleanup
+	release spi controller
+	free gpio number of chip-select, free/disable dma, ...
+	
+omap2_mcspi_prepare_message(): set up the controller to transfer a single message
+	disable tất cả các chân chip-select khác ngoại chip select hiện tại dùng cho current-slave.
+	disable được được thực hiện bằng cách config giá trị bit FORCE trong thanh ghi CHCONF.
+	được gọi trước mỗi lần truyền một byte.
+
+omap2_mcspi_set_cs(): set the logic level of the chip select linen
+	thực hiện thay đổi value của chân CS, cần gọi 2 lần: 1 lần cs = LOW để chọn chip và 1 lần cs = HIGH to disable 
+
+------------------------------------------------------------------------
+__spi_pump_message()
+{
+	ret = ctlr->prepare_message(ctlr, ctlr->cur_msg);
+	ret = ctlr->transfer_one_message(ctlr, ctlr->cur_msg);
+}
+
+ctlr->transfer_one_message()
+{
+	omap2_mcspi_set_cs(...., LOW);
+	....
+	if (dma buffer ready) {
+		omap2_mcspi_can_dma()
+		...
+	}
+	...
+	omap2_mcspi_set_cs(...., HIGH);
+}

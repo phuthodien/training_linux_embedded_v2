@@ -1,0 +1,506 @@
+/*
+ * Copyright 2017-2019 NXP
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ */
+
+/dts-v1/;
+#include "s32-gen1.dtsi"
+#include <dt-bindings/pinctrl/s32v344-pinctrl.h>
+/ {
+	model = "Freescale S32V344";
+	compatible = "fsl,s32v344-simu", "fsl,s32v344",
+				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
+
+	chosen {
+		linux,initrd-start = <0x84000000>;
+		linux,initrd-end = <0x8A000000>;
+
+	};
+
+	sysclk: clk10000000 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <10000000>;
+		clock-output-names = "sysclk";
+	};
+
+	virtio_block@39501000 {
+		compatible = "virtio,mmio";
+		reg = <0x0 0x39501000 0x0 0x1000>;
+		interrupts = <0 68 4>;
+	};
+
+	clks: clks@40038000 {
+		compatible = "fsl,s32v344-clocking";
+		reg = <0x0 0x40038000 0x0 0x3000>, /*armpll*/
+		      <0x0 0x4003C000 0x0 0x3000>, /*periphpll*/
+		      <0x0 0x40040000 0x0 0x3000>, /*accelpll*/
+		      <0x0 0x40044000 0x0 0x3000>, /*ddrpll*/
+		      <0x0 0x40054000 0x0 0x3000>, /*armdfs*/
+		      <0x0 0x40058000 0x0 0x3000>; /*periphdfs*/
+		#clock-cells = <1>;
+	};
+
+	siul2_0 {
+		compatible = "simple-mfd";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		status = "okay";
+			  /* PINCTRL */
+		ranges = <1 0 0x0 0x4009C240 0x0 0x198>,
+			 /* IMCR range */
+			 <2 0 0x0 0x4009CA40 0x0 0x150>;
+		pinctrl0: siul2-pinctrl0@4009C000 {
+			compatible = "fsl,s32v344-siul2_0-pinctrl";
+			#pinctrl-cells = <2>;
+			reg = <0x1 0x0 0x0 0x198>,
+			<0x2 0x0 0x0 0x150>;
+			/* MSCR range */
+			pins = <&pinctrl0 0 101>,
+			/* IMCR range */
+			<&pinctrl0 512 595>;
+			status = "okay";
+		};
+		/*
+		 * Note gpio controller nodes are split into sections
+		 * of contiguous GPIO numbering at this
+		 * point in time, functions working with gpio chips
+		 * assume this for many things.
+		 */
+		gpioother0: siul2-gpio0@4009C002 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl0 0 0 9>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			status = "okay";
+		};
+
+		gpioeirq0: siul2-gpio0@4009C004 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+				/* GPIO 0-15,27-32 */
+			gpio-ranges = <&pinctrl0 0 9 32>,
+				/* EIRQ pins */
+				<&pinctrl1 628 628 32>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			regmap2 = <&irq_regs>;
+			interrupt-controller;
+			interrupts = <0 0 4>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpioeirq0>;
+			status = "okay";
+		};
+
+		gpioother1: siul2-gpio0@4009C006 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl0 0 41 61>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			status = "okay";
+		};
+	};
+
+	siul2_1 {
+		compatible = "simple-mfd";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		status = "okay";
+			  /* PINCTRL */
+		ranges = <1 0 0x0 0x440CE240 0x0 0x9C>,
+			 /* IMCR range */
+			 <2 0 0x0 0x440CEB04 0x0 0x180>;
+
+		pinctrl1: siul2-pinctrl1@440CE000 {
+			compatible =
+				"fsl,s32v344-siul2_1-pinctrl";
+			#pinctrl-cells = <2>;
+			reg = <0x1 0x0 0x0 0x9C>,
+			<0x2 0x0 0x0 0x180>;
+			/* MSCR range */
+			pins = <&pinctrl1 105 143>,
+			/* IMCR range */
+			<&pinctrl1 561 656>;
+			status = "okay";
+		};
+
+		gpioother2: siul2-gpio0@440CE002 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl1 0 105 39>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad1_regs>;
+			regmap1 = <&ipad1_regs>;
+			status = "okay";
+		};
+	};
+
+	irq_regs: siul2_reg@0x440CE000 {
+		compatible = "fsl,irq_reqs-s32gen1","syscon","simple-mfd";
+		reg = <0x0 0x440CE000 0x0 0x40>;
+		little-endian;
+	};
+	opad0_regs: siul2_reg@0x4009D700 {
+		compatible = "fsl,opad0_reqs-s32gen1","syscon","simple-mfd";
+		reg = <0x0 0x4009D700 0x0 0x10>;
+		big-endian;
+	};
+	ipad0_regs: siul2_reg@0x4009D740 {
+		compatible = "fsl,ipad0_reqs-s32gen1","syscon","simple-mfd";
+		reg = <0x0 0x4009D740 0x0 0x10>;
+		big-endian;
+	};
+	opad1_regs: siul2_reg@0x440CF70C {
+		compatible = "fsl,opad0_reqs-s32gen1","syscon","simple-mfd";
+		reg = <0x0 0x440CF70C 0x0 0x14>;
+		big-endian;
+	};
+	ipad1_regs: siul2_reg@0x440CF74C {
+		compatible = "fsl,ipad0_reqs-s32gen1","syscon","simple-mfd";
+		reg = <0x0 0x440CF74C 0x0 0x14>;
+		big-endian;
+	};
+};
+
+&cluster0_l2_cache {
+	status = "okay";
+};
+
+&cluster1_l2_cache {
+	status = "okay";
+};
+
+&cpu0 {
+	next-level-cache = <&cluster0_l2_cache>;
+};
+
+&cpu1 {
+	next-level-cache = <&cluster0_l2_cache>;
+};
+
+&cpu2 {
+	next-level-cache = <&cluster1_l2_cache>;
+};
+
+&cpu3 {
+	next-level-cache = <&cluster1_l2_cache>;
+};
+
+&fxosc {
+	clock-frequency = <40000000>;
+};
+
+&generic_timer {
+	clock-frequency = <1200000>;
+};
+
+&i2c0 {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+};
+
+&i2c2 {
+	status = "okay";
+};
+
+&i2c3 {
+	status = "okay";
+};
+
+&i2c4 {
+	status = "okay";
+};
+
+&can0 {
+	status = "okay";
+};
+
+&can1 {
+	status = "okay";
+};
+
+&can2 {
+	status = "okay";
+};
+
+&can3 {
+	status = "okay";
+};
+
+&stm0 {
+	status = "okay";
+};
+
+&fccu {
+	status = "okay";
+};
+
+&stm1 {
+	status = "okay";
+};
+
+&swt3 {
+	status = "okay";
+};
+
+&swt4 {
+	status = "okay";
+};
+
+&swt5 {
+	status = "okay";
+};
+
+&swt6 {
+	status = "okay";
+};
+
+&pit0 {
+	status = "okay";
+};
+
+&pit1 {
+	status = "okay";
+};
+
+&pinctrl0 {
+	status = "okay";
+	s32v344-simu {
+		pinctrl_gpio0: gpiogrp0 {
+			fsl,pins = <
+				S32_GEN1_PAD_PA0__SIUL_GPIO0
+				S32_GEN1_PAD_PA1__SIUL_GPIO1
+				S32_GEN1_PAD_PA2__SIUL_GPIO2
+				S32_GEN1_PAD_PA3__SIUL_GPIO3
+				S32_GEN1_PAD_PA4__SIUL_GPIO4
+				S32_GEN1_PAD_PA5__SIUL_GPIO5
+				S32_GEN1_PAD_PA6__SIUL_GPIO6
+				S32_GEN1_PAD_PA7__SIUL_GPIO7
+				S32_GEN1_PAD_PA8__SIUL_GPIO8
+				S32_GEN1_PAD_PA9__SIUL_GPIO9
+				S32_GEN1_PAD_PA10__SIUL_GPIO10
+				S32_GEN1_PAD_PA11__SIUL_GPIO11
+				S32_GEN1_PAD_PA12__SIUL_GPIO12
+				S32_GEN1_PAD_PA13__SIUL_GPIO13
+				S32_GEN1_PAD_PA14__SIUL_GPIO14
+				S32_GEN1_PAD_PA15__SIUL_GPIO15
+				S32_GEN1_PAD_PB0__SIUL_GPIO16
+				S32_GEN1_PAD_PB1__SIUL_GPIO17
+				S32_GEN1_PAD_PB2__SIUL_GPIO18
+				S32_GEN1_PAD_PB3__SIUL_GPIO19
+				S32_GEN1_PAD_PB4__SIUL_GPIO20
+				S32_GEN1_PAD_PB5__SIUL_GPIO21
+				S32_GEN1_PAD_PB6__SIUL_GPIO22
+				S32_GEN1_PAD_PB7__SIUL_GPIO23
+				S32_GEN1_PAD_PB8__SIUL_GPIO24
+				S32_GEN1_PAD_PB9__SIUL_GPIO25
+				S32_GEN1_PAD_PB10__SIUL_GPIO26
+				S32_GEN1_PAD_PB11__SIUL_GPIO27
+				S32_GEN1_PAD_PB12__SIUL_GPIO28
+				S32_GEN1_PAD_PB13__SIUL_GPIO29
+				S32_GEN1_PAD_PB14__SIUL_GPIO30
+				S32_GEN1_PAD_PB15__SIUL_GPIO31
+				S32_GEN1_PAD_PC0__SIUL_GPIO32
+				S32_GEN1_PAD_PC1__SIUL_GPIO33
+				S32_GEN1_PAD_PC2__SIUL_GPIO34
+				S32_GEN1_PAD_PC3__SIUL_GPIO35
+				S32_GEN1_PAD_PC4__SIUL_GPIO36
+				S32_GEN1_PAD_PC5__SIUL_GPIO37
+				S32_GEN1_PAD_PC6__SIUL_GPIO38
+				S32_GEN1_PAD_PC7__SIUL_GPIO39
+				S32_GEN1_PAD_PC8__SIUL_GPIO40
+				S32_GEN1_PAD_PC9__SIUL_GPIO41
+				S32_GEN1_PAD_PC10__SIUL_GPIO42
+				S32_GEN1_PAD_PC11__SIUL_GPIO43
+				S32_GEN1_PAD_PC12__SIUL_GPIO44
+				S32_GEN1_PAD_PC13__SIUL_GPIO45
+				S32_GEN1_PAD_PC14__SIUL_GPIO46
+				S32_GEN1_PAD_PC15__SIUL_GPIO47
+				S32_GEN1_PAD_PD0__SIUL_GPIO48
+				S32_GEN1_PAD_PD1__SIUL_GPIO49
+				S32_GEN1_PAD_PD2__SIUL_GPIO50
+				S32_GEN1_PAD_PD3__SIUL_GPIO51
+				S32_GEN1_PAD_PD4__SIUL_GPIO52
+				S32_GEN1_PAD_PD5__SIUL_GPIO53
+				S32_GEN1_PAD_PD6__SIUL_GPIO54
+				S32_GEN1_PAD_PD7__SIUL_GPIO55
+				S32_GEN1_PAD_PD8__SIUL_GPIO56
+				S32_GEN1_PAD_PD9__SIUL_GPIO57
+				S32_GEN1_PAD_PD10__SIUL_GPIO58
+				S32_GEN1_PAD_PD11__SIUL_GPIO59
+				S32_GEN1_PAD_PD12__SIUL_GPIO60
+				S32_GEN1_PAD_PD13__SIUL_GPIO61
+				S32_GEN1_PAD_PD15__SIUL_GPIO63
+				S32_GEN1_PAD_PE0__SIUL_GPIO64
+				S32_GEN1_PAD_PE1__SIUL_GPIO65
+				S32_GEN1_PAD_PE2__SIUL_GPIO66
+				S32_GEN1_PAD_PE3__SIUL_GPIO67
+				S32_GEN1_PAD_PE4__SIUL_GPIO68
+				S32_GEN1_PAD_PE5__SIUL_GPIO69
+				S32_GEN1_PAD_PE6__SIUL_GPIO70
+				S32_GEN1_PAD_PE7__SIUL_GPIO71
+				S32_GEN1_PAD_PE8__SIUL_GPIO72
+				S32_GEN1_PAD_PE9__SIUL_GPIO73
+				S32_GEN1_PAD_PE10__SIUL_GPIO74
+				S32_GEN1_PAD_PE11__SIUL_GPIO75
+				S32_GEN1_PAD_PE12__SIUL_GPIO76
+				S32_GEN1_PAD_PE13__SIUL_GPIO77
+				S32_GEN1_PAD_PF1__SIUL_GPIO81
+				S32_GEN1_PAD_PF2__SIUL_GPIO82
+				S32_GEN1_PAD_PF3__SIUL_GPIO83
+				S32_GEN1_PAD_PF4__SIUL_GPIO84
+				S32_GEN1_PAD_PF5__SIUL_GPIO85
+				S32_GEN1_PAD_PF6__SIUL_GPIO86
+				S32_GEN1_PAD_PF7__SIUL_GPIO87
+				S32_GEN1_PAD_PF8__SIUL_GPIO88
+				S32_GEN1_PAD_PF9__SIUL_GPIO89
+				S32_GEN1_PAD_PF10__SIUL_GPIO90
+				S32_GEN1_PAD_PF11__SIUL_GPIO91
+				S32_GEN1_PAD_PF12__SIUL_GPIO92
+				S32_GEN1_PAD_PF13__SIUL_GPIO93
+				S32_GEN1_PAD_PF14__SIUL_GPIO94
+				S32_GEN1_PAD_PF15__SIUL_GPIO95
+				S32_GEN1_PAD_PG0__SIUL_GPIO96
+				S32_GEN1_PAD_PG1__SIUL_GPIO97
+				S32_GEN1_PAD_PG2__SIUL_GPIO98
+				S32_GEN1_PAD_PG3__SIUL_GPIO99
+				S32_GEN1_PAD_PG4__SIUL_GPIO100
+				S32_GEN1_PAD_PG5__SIUL_GPIO101
+				>;
+		};
+	};
+};
+
+&pinctrl1 {
+	status = "okay";
+	s32v344-simu {
+		pinctrl_gpio1: gpiogrp1 {
+			fsl,pins = <
+				S32_GEN1_PAD_PG9__SIUL_GPIO105
+				S32_GEN1_PAD_PG10__SIUL_GPIO106
+				S32_GEN1_PAD_PG11__SIUL_GPIO107
+				S32_GEN1_PAD_PG12__SIUL_GPIO108
+				S32_GEN1_PAD_PG13__SIUL_GPIO109
+				S32_GEN1_PAD_PG14__SIUL_GPIO110
+				S32_GEN1_PAD_PG15__SIUL_GPIO111
+				S32_GEN1_PAD_PH0__SIUL_GPIO112
+				S32_GEN1_PAD_PH1__SIUL_GPIO113
+				S32_GEN1_PAD_PH2__SIUL_GPIO114
+				S32_GEN1_PAD_PH3__SIUL_GPIO115
+				S32_GEN1_PAD_PH4__SIUL_GPIO116
+				S32_GEN1_PAD_PH5__SIUL_GPIO117
+				S32_GEN1_PAD_PH6__SIUL_GPIO118
+				S32_GEN1_PAD_PH7__SIUL_GPIO119
+				S32_GEN1_PAD_PH8__SIUL_GPIO120
+				S32_GEN1_PAD_PH9__SIUL_GPIO121
+				S32_GEN1_PAD_PH10__SIUL_GPIO122
+				S32_GEN1_PAD_PH11__SIUL_GPIO123
+				S32_GEN1_PAD_PH12__SIUL_GPIO124
+				S32_GEN1_PAD_PH13__SIUL_GPIO125
+				S32_GEN1_PAD_PH14__SIUL_GPIO126
+				S32_GEN1_PAD_PH15__SIUL_GPIO127
+				S32_GEN1_PAD_PJ0__SIUL_GPIO128
+				S32_GEN1_PAD_PJ1__SIUL_GPIO129
+				S32_GEN1_PAD_PJ2__SIUL_GPIO129
+				S32_GEN1_PAD_PJ3__SIUL_GPIO131
+				S32_GEN1_PAD_PJ4__SIUL_GPIO132
+				S32_GEN1_PAD_PJ5__SIUL_GPIO133
+				S32_GEN1_PAD_PJ6__SIUL_GPIO134
+				S32_GEN1_PAD_PJ7__SIUL_GPIO135
+				S32_GEN1_PAD_PJ8__SIUL_GPIO136
+				S32_GEN1_PAD_PJ9__SIUL_GPIO137
+				S32_GEN1_PAD_PJ10__SIUL_GPIO138
+				S32_GEN1_PAD_PJ11__SIUL_GPIO139
+				S32_GEN1_PAD_PJ12__SIUL_GPIO140
+				S32_GEN1_PAD_PJ13__SIUL_GPIO141
+				S32_GEN1_PAD_PJ14__SIUL_GPIO142
+				S32_GEN1_PAD_PJ15__SIUL_GPIO143
+				>;
+		};
+		pinctrl_gpioeirq0: gpioeirqgrp0 {
+			fsl,pins = <
+				S32_GEN1_PAD_PA9__SIUL_EIRQ0
+				S32_GEN1_PAD_PA10__SIUL_EIRQ1
+				S32_GEN1_PAD_PA11__SIUL_EIRQ2
+				S32_GEN1_PAD_PA12__SIUL_EIRQ3
+				S32_GEN1_PAD_PA13__SIUL_EIRQ4
+				S32_GEN1_PAD_PA14__SIUL_EIRQ5
+				S32_GEN1_PAD_PA15__SIUL_EIRQ6
+				S32_GEN1_PAD_PB0__SIUL_EIRQ7
+				S32_GEN1_PAD_PB1__SIUL_EIRQ8
+				S32_GEN1_PAD_PB2__SIUL_EIRQ9
+				S32_GEN1_PAD_PB3__SIUL_EIRQ10
+				S32_GEN1_PAD_PB4__SIUL_EIRQ11
+				S32_GEN1_PAD_PB5__SIUL_EIRQ12
+				S32_GEN1_PAD_PB6__SIUL_EIRQ13
+				S32_GEN1_PAD_PB7__SIUL_EIRQ14
+				S32_GEN1_PAD_PB8__SIUL_EIRQ15
+				S32_GEN1_PAD_PB9__SIUL_EIRQ16
+				S32_GEN1_PAD_PB10__SIUL_EIRQ17
+				S32_GEN1_PAD_PB11__SIUL_EIRQ18
+				S32_GEN1_PAD_PB12__SIUL_EIRQ19
+				S32_GEN1_PAD_PB13__SIUL_EIRQ20
+				S32_GEN1_PAD_PB14__SIUL_EIRQ21
+				S32_GEN1_PAD_PB15__SIUL_EIRQ22
+				S32_GEN1_PAD_PC0__SIUL_EIRQ23
+				S32_GEN1_PAD_PC1__SIUL_EIRQ24
+				S32_GEN1_PAD_PC2__SIUL_EIRQ25
+				S32_GEN1_PAD_PC3__SIUL_EIRQ26
+				S32_GEN1_PAD_PC4__SIUL_EIRQ27
+				S32_GEN1_PAD_PC5__SIUL_EIRQ28
+				S32_GEN1_PAD_PC6__SIUL_EIRQ29
+				S32_GEN1_PAD_PC7__SIUL_EIRQ30
+				S32_GEN1_PAD_PC8__SIUL_EIRQ31
+				>;
+		};
+	};
+};
+
+
+&edma0 {
+	status = "okay";
+};
+
+&edma1 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+};
+
+&spi1 {
+	status = "okay";
+};
+
+&spi2 {
+	status = "okay";
+};
+
+&spi3 {
+	status = "okay";
+};
+
+&spi4 {
+	status = "okay";
+};
+
+&spi5 {
+	status = "okay";
+};

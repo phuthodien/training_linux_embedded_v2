@@ -1,0 +1,7 @@
+Tools and Trick for Embedded Linux
+==================================
+1. grep -nrwI "string-need-find" <path-need-search>
+2. grep -nrwI --include=*\.c --include=*\.h "string-need-find" <path-need-search>
+3. find <path-need-search> -name "file-name"
+4. dump_stack();
+5. pr_emerg("Dungnt98 %s, %d", __func__, __LINE__);

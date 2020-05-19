@@ -1,0 +1,98 @@
+Create Bootable SD-card for Beaglebone Black
+============================================
+1. Requirement
+==============
+ - cross-compiler:
+ - u-boot source
+ - linux kernel source : 4.14.108
+ - root file system
+ - sd-card more than 4GB
+
+2. Step by step
+===============
+2.1 Get stuff:
+ - install cross-compiler:
+		+ download from: http://releases.linaro.org/components/toolchain/binaries/7.4-2019.02/arm-linux-gnueabihf/
+		+ file: gcc-linaro-7.4.1-2019.02-x86_64_arm-linux-gnueabihf.tar.xz
+		+ extract this file: 
+							tar -xvf gcc-linaro-7.4.1-2019.02-x86_64_arm-linux-gnueabihf.tar.xz
+							mv gcc-linaro-7.4.1-2019.02-x86_64_arm-linux-gnueabihf ~/arm-linux-toolchain/
+							
+ - clone source code u-boot <run two following command>:
+		cd ~/
+		git clone git://git.denx.de/u-boot.git u-boot/
+		
+ - clone source code kernel <run two following command>:
+		cd ~/
+		git clone https://github.com/beagleboard/linux.git
+ - Download Rootfs:
+		https://www.dropbox.com/s/k93doprl261hwn2/rootfs.tar.xz?dl=0
+		
+2.2 Compile source code
+ - sudo apt install u-boot-tools
+ - sudo apt install lzop
+ - Compile U-boot:
+		cd ~/u-boot/
+		make ARCH=arm CROSS_COMPILE=~/arm-linux-toolchain/bin/arm-linux-gnueabihf- am335x_boneblack_vboot_defconfig
+		make ARCH=arm CROSS_COMPILE=~/arm-linux-toolchain/bin/arm-linux-gnueabihf-
+
+ - Compile linux kernel:
+		cd ~/linux/
+		sudo make ARCH=arm CROSS_COMPILE=~/arm-linux-toolchain/bin/arm-linux-gnueabihf- bb.org_defconfig
+		sudo make ARCH=arm CROSS_COMPILE=~/arm-linux-toolchain/bin/arm-linux-gnueabihf- uImage dtbs LOADADDR=0x80008000 -j4
+
+2.3 Format Sd-card
+ - install tool format sd-card:
+		sudo apt-get install gparted
+
+ - plug-in sd-card and format it with two partitions:
+		+ partition 1: 	.size = 50M
+						.type: Fat32
+						.label: BOOT
+		+ partition 2: 	.size = 3G (rest of total sd-card's size)
+						.type: ext4
+						.label: RFS
+						
+ - to view what sd-card's partition is. you need run following command:
+		lsblk
+		
+		eg: sdc -|
+				 |- sdc1	/media/trongdung/BOOT/
+				 |- sdc2	/media/trongdung/RFS/
+				 
+		***NOTE***: if result of command 'lsblk' are not like above, you must mount sdc1 and sdc2 to your system to write data to these partitions.
+
+ - Runs following commands to make BOOT partition:
+		sudo cp ~/u-boot/MLO /media/trongdung/BOOT/
+		sudo cp ~/u-boot/u-boot.img /media/trongdung/BOOT/
+		sudo cp ~/linux/arch/arm/boot/uImage /media/trongdung/BOOT/
+		sudo cp ~/linux/arch/arm/boot/dts/am335x-boneblack.dtb /media/trongdung/BOOT/
+		
+		vi /media/trongdung/BOOT/uEnv.txt
+			*** and then paste following content to the uEnv.txt file ***
+			-----------------------------------------------------
+			console=ttyS0,115200n8
+			netargs=setenv bootargs console=ttyO0,115200n8 root=/dev/mmcblk0p2 ro rootfstype=ext4 rootwait debug earlyprintk mem=512M
+			netboot=echo Booting from microSD ...; setenv autoload no ; load mmc 0:1 ${loadaddr} uImage ; load mmc 0:1 ${fdtaddr} am335x-boneblack.dtb ; run netargs ; bootm ${loadaddr} - ${fdtaddr}
+			uenvcmd=run netboot
+			------------------------------------------------------
+
+		after that, run command:
+			sync
+			sudo umount /media/trongdung/BOOT/
+			
+ - Runs following commands to make RFS partition:
+		cd ~/Download/
+		tar -xvf rootfs.tar.xz
+		cd rootfs
+		sudo cp -r ./* /media/trongdung/RFS/
+		sync
+		sudo umount /media/trongdung/RFS/
+		
+3. Done ! Now, we can lug-in sd-card to Board and power on.
+
+4. To use PL2303 as debugger.
+	install screen tool:
+		sudo apt install screen
+	run command:
+		sudo screen /dev/ttyUSB0 115200

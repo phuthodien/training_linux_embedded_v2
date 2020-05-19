@@ -1,0 +1,68 @@
+grep "pinctrl_request_gpio" -> drivers/pinctrl/core.c -> grep "pinmux_request_gpio" -> 
+-> drivers/pinctrl/pinmux.c -> grep "pin_request" -> :83 -> grep "gpio_request_enable" -> 
+-> drivers/pinctrl/pinctrl-single.c -> pcs_request_gpio
+
+
+*********************** Flowing of omap code: **********************
+export:
+	my_gpio_request
+	my_gpio_get_direction
+	my_irq_bus_lock
+	my_ack_irq
+	my_irq_bus_sync_unlock
+
+unexport:
+	my_irq_bus_lock
+	my_irq_shutdown -> if current mode is irq
+	my_irq_bus_sync_unlock
+	my_gpio_free
+
+direction:
+	my_gpio_set_config 				*just once*
+	my_gpio_direction_output / input
+
+edge: enable irq
+	my_irq_bus_lock
+	my_gpio_get_direction
+	my_irq_type -> is_input 
+*** my_irq_startup -> is_input, enable_gpio_module
+	my_irq_bus_sync_unlock
+
+edge: disable irq
+	my_irq_bus_lock
+	my_irq_shutdown -> disable_irq, disable_gpio_module
+	my_irq_bus_sync_unlock
+--------------------------------------------------------------------------------------------------------------------------
+
+export:
+	SyS_write -> kernfs_fop_write -> export_store -> gpiod_request -> __gpiod_request -> my_gpio_request (enable_gpio_module)
+										|										|------> my_gpio_get_direction
+										|
+										|---> gpiod_export -> device_create_groups -> device_add -> sysfs_create_groups -> gpiod_to_irq -> irq_create_mapping -> irq_domain_associate -> gpiochip_irq_map -> irq_set_chip_and_handler_name -> __irq_set_handler -> __irq_get_desc_lock -> omap_gpio_irq_bus_lock
+																																																														|--> __irq_do_set_handler -> omap_gpio_ack_irq
+																																																														|--> __irq_push_desc_lock -> gpio_irq_bus_sync_unlock
+
+direction:
+	SyS_write -> kernfs_fop_write -> dev_attr_store -> direction_store -> __gpiod_direction_output_raw -> omap_gpio_set_config
+																|					|---> omap_gpio_output
+																|
+																|---> gpiod_direction_input ->omap_gpio_input
+
+value:
+	SyS_write -> kernfs_fop_read -> dev_attr_show -> omap_gpio_get
+
+unexport:
+	SyS_write -> unexport_store -> gpiod_free -> omap_gpio_free
+
+edge:
+	SyS_write -> edge_store -> gpio_sysfs_request_irq -> omap_gpio_get_direction
+					|					|---> __setup_irq -> omap_gpio_irq_bus_lock
+					|								| --> omap_gpio_get_direction
+					|								| --> omap_gpio_irq_type
+					|								| --> omap_gpio_irq_startup -> omap_gpio_unmask_irq
+					|								| --> gpio_irq_bus_sync_unlock
+					|
+					| ----> gpio_sysfs_free_irq -> omap_gpio_irq_bus_lock
+								| --> omap_gpio_irq_shutdown -> disable_gpio_module
+								| --> gpio_irq_bus_sync_unlock
+								

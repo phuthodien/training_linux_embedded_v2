@@ -1,0 +1,116 @@
+devm_spi_register_master -> spi_register_controller -> of_register_spi_devices 
+-> of_register_spi_device
+
+spi->chip_select = <reg> properties in device tree
+
+/******************************************************************************/
+(0) omap2_mcspi_probe()
+{
+	of_property_read_u32(node, "ti,spi-num-cs", &num_cs);
+	master->num_chipselect = num_cs;
+
+	status = devm_spi_register_master(&pdev->dev, master);
+}
+
+(1) spi_register_controller()
+{
+	if (!spi_controller_is_slave(ctlr)) {
+		status = of_spi_register_master(ctlr); /* return 0 */
+		if (status)
+			return status;
+	}
+
+	/* allocate dynamic bus number using Linux idr */
+	id = of_alias_get_id(ctlr->dev.of_node, "spi");
+	if (id >= 0) {
+		ctlr->bus_num = id;
+		mutex_lock(&board_lock);
+		id = idr_alloc(&spi_master_idr, ctlr, ctlr->bus_num, ctlr->bus_num + 1, GFP_KERNEL);
+		mutex_unlock(&board_lock);
+		if (WARN(id < 0, "couldn't get idr"))
+				return id == -ENOSPC ? -EBUSY : id;
+	}
+
+	of_register_spi_devices(ctlr);
+}
+
+(2) static int of_spi_register_master(struct spi_controller *ctlr)
+{
+	int nb, i, *cs;
+	struct device_node *np = ctlr->dev.of_node;
+
+	 if (!np)
+		  return 0;
+
+	nb = of_gpio_named_count(np, "cs-gpios");
+	 ctlr->num_chipselect = max_t(int, nb, ctlr->num_chipselect);
+
+	/* Return error only for an incorrectly formed cs-gpios property */
+	if (nb == 0 || nb == -ENOENT)
+			return 0; /* run */
+	else if (nb < 0)
+			 return nb;
+
+	cs = devm_kzalloc(&ctlr->dev, sizeof(int) * ctlr->num_chipselect, GFP_KERNEL);
+	ctlr->cs_gpios = cs;
+
+	if (!ctlr->cs_gpios)
+		return -ENOMEM;
+
+	for (i = 0; i < ctlr->num_chipselect; i++)
+		   cs[i] = -ENOENT;
+
+	for (i = 0; i < nb; i++)
+		cs[i] = of_get_named_gpio(np, "cs-gpios", i); /* get gpio number to use for gpio.h api */
+ return 0;
+}
+
+
+(2) of_register_spi_devices(ctlr)
+{
+	for_each_available_child_of_node(ctlr->dev.of_node, nc) {
+		spi = of_register_spi_device(ctlr, nc);
+	}
+}
+
+(3) of_register_spi_device()
+{
+	spi = spi_alloc_device(ctlr);
+	rc = of_spi_parse_dt(ctlr, spi, nc);
+	rc = spi_add_device(spi);
+}
+
+(4) spi_alloc_device()
+{
+	 spi->dev.bus = &spi_bus_type;
+	spi->cs_gpio = -ENOENT;
+}
+
+(5) static int of_spi_parse_dt(struct spi_controller *ctlr, struct spi_device *spi,
+				struct device_node *nc)
+{
+	/* Device address */
+	rc = of_property_read_u32(nc, "reg", &value);
+	spi->chip_select = value;
+	
+	/* Device speed */
+	rc = of_property_read_u32(nc, "spi-max-frequency", &value);
+	spi->max_speed_hz = value;
+}
+
+
+(6) spi_add_device()
+{
+	if (spi->chip_select >= ctlr->num_chipselect) {
+		dev_err(dev, "cs%d >= max %d\n", spi->chip_select, ctlr->num_chipselect);
+		return -EINVAL;
+	}
+
+	 if (ctlr->cs_gpios)
+		spi->cs_gpio = ctlr->cs_gpios[spi->chip_select];
+
+	status = spi_setup(spi);
+}
+
+/*----------------------------------------------------------------------------*/
+
