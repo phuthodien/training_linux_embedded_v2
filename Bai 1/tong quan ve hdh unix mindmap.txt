@@ -1,15 +1,69 @@
-Gioi thieu ve khoa hoc
-Gioi thieu ve cac he dieu hanh ho Unix
-Gioi thieu ve cac chuc nang chinh cua mot de hieu hanh
-	Cau hoi pv: Trinh bay tinh nang chinh cua hdh
-Kien truc cua he dieu hanh Linux
-	Cau hoi pv: Trinh bay kien truc cua hdh Linux
-Giao dien nguoi su dung
-	Cau hoi pv: Tai sao lai can giao dien command line
-Chuong trinh va tien trinh
-	Cau hoi pv: Chuong trinh voi tien trinh khac nhau nhu the nao
-Unix la he dieu hanh da nhiem
-	Cau hoi pv: He dieu hanh da nhiem co chay dc tren he thong single core ko?
-He thong file system
-Bai tap
-Thank you
+Ưu nhược điểm của embedded Linux
+	rich user interface
+	Open source
+	Có nhiều thư viện hỗ trợ
+	Cộng đồng lập trình viên lớn
+	Hệ thống kém ổn định
+	Tiêu tốn tài nguyên
+Các command line cơ bản
+	Là các chương trình trong thư mục /bin và /sbin
+		ls
+		cd
+		pwd
+		cp, mv
+		man
+		sudo
+		mkdir
+Cài đặt phần mềm
+	apt command
+		Chương trình apt chuyên dùng để install, uninstall các chương trình khác trong linux
+		apt sẽ connect vào 1 số các server của open source và tìm kiếm phần mềm trùng với tên mà người dùng yêu cầu để tiến hành cài đặt
+		apt-get update, apt-get install
+Các kỹ thuật cơ bản khi lập trình trên Linux
+Vim editor
+	Cho phép người dùng lập trình trên giao diện console và không hỗ trợ chuột
+	Hotkey
+		I: Insert mode, Esc: Command mode
+		: x: Nhảy đến dòng x
+		/string: Tìm kiếm chuỗi string
+		Shift + 8: Tìm kiếm word hiện tại trên con trỏ
+		:wq: Quit và save, :q! Quit nhưng không save
+		https://www.maketecheasier.com/cheatsheet/vim-keyboard-shortcuts/
+gcc compiler
+	command line dùng để build source code
+	command cơ bản: gcc -o output_name file.c
+	options
+		-I: chỉ đến đường dẫn tìm các file .h
+		-l: Chỉ đến đường dẫn chứa các file thư viện động
+		https://www.thegeekstuff.com/2012/10/gcc-compiler-options/
+	Sử dụng vim để viết chương trình tính tổng các số từ 1 đến 100 và in ra màn hình
+Shell script
+	Linux cho phép lưu lại các command line trên 1 file text sau đó thực thi file text đó.
+	Example: build.sh
+	Viết script để build chương trình tính tổng
+Makefile
+	1 loại script chuyên dùng để build source code. Được đọc và thực thi bởi chương trình make.
+	Makefile có khả năng kiểm tra sự thay đổi trong source và chỉ build lại những file source có thay đổi.
+	Example
+		https://www.cs.colby.edu/maxwell/courses/tutorials/maketutor/
+	Sử dụng Makefile để build chương trình tính tổng
+Các kỹ thuật tìm kiếm và debug source code
+gdb debugger
+	Là chương trình cho phép người dùng debug ở trong chế độ console
+	Sử dụng option 
+		Chỉ định program cần debug: gdb file_name
+		set break point: b N
+		run chương trình: run
+		Xem giá trị của biến:
+		print val_name
+		đi qua 1 câu lệnh: next
+grep and find command
+	find path_to_folder *name*
+		Tìm kiếm tất cả các file có chứa chuỗi name trong foler path_to_folder
+	grep -nrwI string path_to_folder
+		Tìm kiếm chuỗi string trong folder path_to_folder
+		options nrwI
+		option --include
+cscope
+	Là công cụ phân tích, hỗ trợ tìm kiếm source code trong chế độ console
+	Cách sử dụng
