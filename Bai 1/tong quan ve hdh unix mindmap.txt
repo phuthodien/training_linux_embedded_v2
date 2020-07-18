@@ -55,7 +55,7 @@ gdb debugger
 		set break point: b N
 		run chương trình: run
 		Xem giá trị của biến:
-		print val_name
+			print val_name
 		đi qua 1 câu lệnh: next
 grep and find command
 	find path_to_folder *name*
