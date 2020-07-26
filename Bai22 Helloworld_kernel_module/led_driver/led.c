@@ -1,58 +1,51 @@
-#include <linux/module.h>
-#include <linux/kernel.h>
+#include <linux/module.h>       /* Needed by all modules */
+#include <linux/kernel.h>       /* Needed for KERN_INFO */
+#include <linux/time.h>
 #include <linux/io.h>
+#include <linux/delay.h>
 
-#define BASE_ADDR 0x01C20800
-//pa17
-#define LED_GREEN 17
+#define GPIO_ADDR_BASE  0x44E07000
+#define ADDR_SIZE       (0x1000)
+#define GPIO_SETDATAOUT_OFFSET          0x194
+#define GPIO_CLEARDATAOUT_OFFSET        0x190
+#define GPIO_OE_OFFSET                  0x134
+#define LED                             (1 << 31)
 
-#define OFF_SET_CONFIG_REG 0x08
+uint32_t __iomem *base_addr;
+struct timer_list my_timer;
+unsigned int count = 0;
 
-#define OFF_SET_CONFIG    4 
-#define DATA_REG    	  0x10 
+static void timer_function(unsigned long data){
+	if ((count % 2) == 0)
+			*(base_addr + GPIO_SETDATAOUT_OFFSET / 4) |= LED;
+	else
+			*(base_addr + GPIO_CLEARDATAOUT_OFFSET / 4) |= LED;
 
-static void __iomem *io;
-static unsigned long temp;
-static int __init hello_init(void) {
-	pr_info("hello world");
-	
-	io = ioremap(BASE_ADDR, 0x100);
-	if(io == NULL) 	{
-		pr_alert("fail map base address\n");
-		return -1;
-	}
-	temp = ioread32(io + OFF_SET_CONFIG_REG);
-	pr_info("before config reg %ld\n", temp);
-	
-	//set config mode output for pa17	
-	temp = temp & (~(0x7<< OFF_SET_CONFIG));
-	
-	//set mode output
-	temp |= (0x01 << OFF_SET_CONFIG);
+	count++;
+	mod_timer(&my_timer, jiffies + HZ);
+}
 
-	iowrite32(temp, (io + OFF_SET_CONFIG_REG)); 
-	pr_info("after config reg %ld\n", temp);
+int init_module(void)
+{
+	base_addr = ioremap(GPIO_ADDR_BASE, ADDR_SIZE);
 
-	//turn on led
-	temp = ioread32(io + DATA_REG);
-	pr_info("before data reg %ld\n", temp);
-	temp |= ( 1 << LED_GREEN);
-	iowrite32(temp , (io +DATA_REG));
-	pr_info("after data reg %ld\n", temp);
+	*(base_addr + GPIO_OE_OFFSET / 4) &= ~LED;
+
+	init_timer(&my_timer);
+	my_timer.expires = jiffies + HZ;
+	my_timer.function = timer_function;
+	my_timer.data = 0;
+	add_timer(&my_timer);
+
 	return 0;
 }
 
-static void __exit hello_exit(void) {
-	//turn off led
-	temp = ioread32(io + DATA_REG);
-	temp &= ~( 1 << LED_GREEN);
-	iowrite32(temp , (io +DATA_REG));
-	pr_info("exit module");	
+void cleanup_module(void)
+{
+	del_timer(&my_timer);
+	*(base_addr + GPIO_CLEARDATAOUT_OFFSET / 4) |= LED;
 }
 
-module_init(hello_init);
-module_exit(hello_exit);
-
-MODULE_AUTHOR("linux embedded");
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("test led");
+MODULE_AUTHOR("Phu Luu An");
+MODULE_DESCRIPTION("Hello world kernel module");
