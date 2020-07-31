@@ -9,17 +9,18 @@
 #define GPIO_SETDATAOUT_OFFSET          0x194
 #define GPIO_CLEARDATAOUT_OFFSET        0x190
 #define GPIO_OE_OFFSET                  0x134
-#define LED                             (1 << 31)
+#define LED                             ~(1 << 31)
+#define DATA_OUT			(1 << 31)
 
-uint32_t __iomem *base_addr;
+void __iomem *base_addr;
 struct timer_list my_timer;
 unsigned int count = 0;
 
 static void timer_function(unsigned long data){
-	if ((count % 2) == 0)
-			*(base_addr + GPIO_SETDATAOUT_OFFSET / 4) |= LED;
+	if ((count % 2) == 0) 
+		writel_relaxed(DATA_OUT,  base_addr + GPIO_SETDATAOUT_OFFSET);
 	else
-			*(base_addr + GPIO_CLEARDATAOUT_OFFSET / 4) |= LED;
+		writel_relaxed(DATA_OUT, base_addr + GPIO_CLEARDATAOUT_OFFSET); 
 
 	count++;
 	mod_timer(&my_timer, jiffies + HZ);
@@ -27,9 +28,13 @@ static void timer_function(unsigned long data){
 
 int init_module(void)
 {
+	uint32_t reg_data = 0;
+
 	base_addr = ioremap(GPIO_ADDR_BASE, ADDR_SIZE);
 
-	*(base_addr + GPIO_OE_OFFSET / 4) &= ~LED;
+	reg_data = readl_relaxed(base_addr + GPIO_OE_OFFSET);
+	reg_data &= LED;
+	writel_relaxed(reg_data, base_addr + GPIO_OE_OFFSET);
 
 	init_timer(&my_timer);
 	my_timer.expires = jiffies + HZ;
@@ -43,7 +48,6 @@ int init_module(void)
 void cleanup_module(void)
 {
 	del_timer(&my_timer);
-	*(base_addr + GPIO_CLEARDATAOUT_OFFSET / 4) |= LED;
 }
 
 MODULE_LICENSE("GPL");
