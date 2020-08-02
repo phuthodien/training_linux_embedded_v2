@@ -161,6 +161,21 @@
 		};
 	};
 
+	led_sample_31 {
+		compatible = "led-example1";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x44E07000 0x1000>;
+		status = "okay";
+	};
+	led_sample_30 {
+		compatible = "led-example2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x44E07000 0x1000>;
+		status = "okay";
+	};
+		
 	/*
 	 * XXX: Use a flat representation of the AM33XX interconnect.
 	 * The real AM33XX interconnect network is quite complex. Since
